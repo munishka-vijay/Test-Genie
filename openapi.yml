@@ -1,0 +1,547 @@
+openapi: 3.0.0
+info:
+  title: Sample APIs for Testing
+  description: A collection of sample APIs to test the API Testing Agent
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    BearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        active:
+          type: boolean
+      required:
+        - id
+        - username
+        - email
+        - active
+    UserCreate:
+      type: object
+      properties:
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+      required:
+        - username
+        - email
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        price:
+          type: number
+          format: float
+        stock:
+          type: integer
+      required:
+        - id
+        - name
+        - price
+        - stock
+    OrderItem:
+      type: object
+      properties:
+        product_id:
+          type: integer
+        quantity:
+          type: integer
+          minimum: 1
+      required:
+        - product_id
+        - quantity
+    OrderCreate:
+      type: object
+      properties:
+        user_id:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+      required:
+        - user_id
+        - items
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        total:
+          type: number
+          format: float
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - user_id
+        - items
+        - total
+        - created_at
+    Error:
+      type: object
+      properties:
+        detail:
+          type: string
+      required:
+        - detail
+paths:
+  /:
+    get:
+      summary: Root endpoint
+      description: Returns a welcome message
+      operationId: read_root
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /users:
+    get:
+      summary: Get all users
+      description: Returns a list of users with optional filtering
+      operationId: get_users
+      tags:
+        - Users
+      parameters:
+        - name: active
+          in: query
+          description: Filter by user active status
+          required: false
+          schema:
+            type: boolean
+        - name: skip
+          in: query
+          description: Number of records to skip for pagination
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of records to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        200:
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+    post:
+      summary: Create a new user
+      description: Creates a new user account
+      operationId: create_user
+      tags:
+        - Users
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+      responses:
+        201:
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        400:
+          description: Bad request (e.g. username already exists, invalid email)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        401:
+          description: Invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/{user_id}:
+    get:
+      summary: Get user by ID
+      description: Returns a specific user by ID
+      operationId: get_user
+      tags:
+        - Users
+      parameters:
+        - name: user_id
+          in: path
+          description: ID of the user to retrieve
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        404:
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      summary: Update user
+      description: Updates an existing user's information
+      operationId: update_user
+      tags:
+        - Users
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          description: ID of the user to update
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+      responses:
+        200:
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        401:
+          description: Invalid token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        404:
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Delete user
+      description: Deletes a user by ID
+      operationId: delete_user
+      tags:
+        - Users
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          description: ID of the user to delete
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        401:
+          description: Invalid token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        404:
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /products:
+    get:
+      summary: Get all products
+      description: Returns a list of products with optional filtering
+      operationId: get_products
+      tags:
+        - Products
+      parameters:
+        - name: min_price
+          in: query
+          description: Minimum price filter
+          required: false
+          schema:
+            type: number
+            format: float
+        - name: max_price
+          in: query
+          description: Maximum price filter
+          required: false
+          schema:
+            type: number
+            format: float
+        - name: in_stock
+          in: query
+          description: Filter by stock availability
+          required: false
+          schema:
+            type: boolean
+      responses:
+        200:
+          description: List of products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+
+  /products/{product_id}:
+    get:
+      summary: Get product by ID
+      description: Returns a specific product by ID
+      operationId: get_product
+      tags:
+        - Products
+      parameters:
+        - name: product_id
+          in: path
+          description: ID of the product to retrieve
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Product found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        404:
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /orders:
+    post:
+      summary: Create a new order
+      description: Creates a new order with products
+      operationId: create_order
+      tags:
+        - Orders
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderCreate'
+      responses:
+        201:
+          description: Order created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        400:
+          description: Bad request (e.g. user not found, product not found, insufficient stock)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        401:
+          description: Invalid token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      summary: Get all orders
+      description: Returns a list of all orders
+      operationId: get_orders
+      tags:
+        - Orders
+      security:
+        - BearerAuth: []
+      responses:
+        200:
+          description: List of orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+        401:
+          description: Invalid token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /orders/{order_id}:
+    get:
+      summary: Get order by ID
+      description: Returns a specific order by ID
+      operationId: get_order
+      tags:
+        - Orders
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: order_id
+          in: path
+          description: ID of the order to retrieve
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Order found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        401:
+          description: Invalid token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        404:
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /health:
+    get:
+      summary: Health check
+      description: Returns the health status of the API
+      operationId: health_check
+      tags:
+        - System
+      responses:
+        200:
+          description: Health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  version:
+                    type: string
+
+  /error/timeout:
+    get:
+      summary: Simulate timeout
+      description: Simulates a request timeout
+      operationId: simulate_timeout
+      tags:
+        - Errors
+      responses:
+        200:
+          description: Response after timeout
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /error/500:
+    get:
+      summary: Simulate server error
+      description: Simulates a 500 internal server error
+      operationId: simulate_server_error
+      tags:
+        - Errors
+      responses:
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /error/rate-limit:
+    get:
+      summary: Simulate rate limit
+      description: Simulates a rate limit exceeded error
+      operationId: simulate_rate_limit
+      tags:
+        - Errors
+      responses:
+        429:
+          description: Rate limit exceeded
+          headers:
+            Retry-After:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
